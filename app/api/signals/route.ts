@@ -23,13 +23,19 @@ export async function GET(req: NextRequest) {
   if (!cache || Date.now() - cache.at > CACHE_TTL) {
     const raw = await fetchFeeds(FEED_SOURCES)
 
-    const items: AnalyzedItem[] = raw.map(item => {
-      const { signal, score, matchedBull, matchedBear } = analyzeSignal(
-        item.title,
-        item.category as Category
-      )
-      return { ...item, category: item.category as Category, signal, score, matchedBull, matchedBear }
-    })
+    const TWO_DAYS = 2 * 24 * 60 * 60 * 1000
+    const items: AnalyzedItem[] = raw
+      .filter(item => {
+        if (!item.pubDate) return false
+        return Date.now() - new Date(item.pubDate).getTime() <= TWO_DAYS
+      })
+      .map(item => {
+        const { signal, score, matchedBull, matchedBear } = analyzeSignal(
+          item.title,
+          item.category as Category
+        )
+        return { ...item, category: item.category as Category, signal, score, matchedBull, matchedBear }
+      })
 
     const allSignals    = items.map(i => i.signal)
     const macroSignals  = items.filter(i => i.category === 'macro').map(i => i.signal)

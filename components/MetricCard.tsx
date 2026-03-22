@@ -8,10 +8,10 @@ interface Props {
 }
 
 const colorMap = {
-  bull:    '#3b6d11',
-  bear:    '#a32d2d',
-  neutral: '#888780',
-  default: 'inherit',
+  bull:    'var(--bull)',
+  bear:    'var(--bear)',
+  neutral: 'var(--muted)',
+  default: 'var(--ink)',
 }
 
 export default function MetricCard({ label, value, color = 'default' }: Props) {
@@ -23,21 +23,34 @@ export default function MetricCard({ label, value, color = 'default' }: Props) {
       </div>
       <style>{`
         .metric-card {
-          background: #f7f6f2;
-          border-radius: 8px;
+          background: var(--card);
+          border: 0.5px solid var(--line);
+          border-radius: 4px;
           padding: 0.875rem 1rem;
+          position: relative;
         }
-        @media (prefers-color-scheme: dark) {
-          .metric-card { background: rgba(255,255,255,0.06); }
+        .metric-card::before {
+          content: '';
+          position: absolute;
+          top: 0; left: 0;
+          width: 3px; height: 100%;
+          background: var(--accent);
+          border-radius: 4px 0 0 4px;
+          opacity: 0.6;
         }
         .mc-label {
-          font-size: 11px; letter-spacing: 0.07em;
-          text-transform: uppercase; color: #888; margin-bottom: 6px;
-          font-family: var(--font-mono, monospace);
+          font-size: 10px;
+          letter-spacing: 0.1em;
+          text-transform: uppercase;
+          color: var(--muted);
+          margin-bottom: 8px;
+          font-family: var(--mono);
         }
         .mc-value {
-          font-size: 24px; font-weight: 500; line-height: 1;
-          font-family: var(--font-mono, monospace);
+          font-size: 22px;
+          font-weight: 500;
+          line-height: 1;
+          font-family: var(--mono);
         }
       `}</style>
     </>

@@ -1,0 +1,42 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;500&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:      #f5f0e8;
+  --ink:     #221d18;
+  --ink-sub: #6b5f54;
+  --line:    #d4c8b5;
+  --accent:  #9b3226;
+  --card:    #ede8de;
+  --muted:   #998d80;
+  --serif:   'Noto Serif JP', 'Hiragino Mincho ProN', 'Yu Mincho', Georgia, serif;
+  --mono:    'SFMono-Regular', 'Consolas', 'Menlo', monospace;
+  --bull:    #9b2020;
+  --bull-bg: #fce8e8;
+  --bear:    #1e6b2e;
+  --bear-bg: #dff0e4;
+  --neut-bg: #e4e0d6;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg:      #1c1814;
+    --ink:     #e4ddd4;
+    --ink-sub: #a09488;
+    --line:    #3c342a;
+    --card:    #252018;
+    --muted:   #7a6e62;
+    --bull-bg: #2e1616;
+    --bear-bg: #1c2e10;
+    --neut-bg: #2c2820;
+  }
+}
+
+html, body {
+  background: var(--bg);
+  color: var(--ink);
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+}

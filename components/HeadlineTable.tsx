@@ -1,131 +1,206 @@
 // components/HeadlineTable.tsx
 'use client'
 
+import { useState, useMemo } from 'react'
 import SignalBadge from './SignalBadge'
 import type { AnalyzedItem } from '@/lib/types'
 import { CATEGORY_LABELS } from '@/lib/feeds'
 
 interface Props {
-  items: AnalyzedItem[]
+  items:         AnalyzedItem[]
+  translations?: string[]
 }
+
+type SortCol = 'signal' | 'title' | 'category' | 'source' | 'time'
+type SortDir = 'asc' | 'desc'
+
+const SIGNAL_ORDER = { BULLISH: 0, NEUTRAL: 1, BEARISH: 2 }
 
 function timeAgo(dateStr: string | null): string {
   if (!dateStr) return ''
   const diff = Date.now() - new Date(dateStr).getTime()
   const m = Math.floor(diff / 60000)
-  if (m < 1)  return 'just now'
-  if (m < 60) return `${m}m ago`
+  if (m < 1)  return '剛剛'
+  if (m < 60) return `${m}分前`
   const h = Math.floor(m / 60)
-  if (h < 24) return `${h}h ago`
-  return `${Math.floor(h / 24)}d ago`
+  if (h < 24) return `${h}時前`
+  return `${Math.floor(h / 24)}日前`
 }
 
-export default function HeadlineTable({ items }: Props) {
+export default function HeadlineTable({ items, translations = [] }: Props) {
+  const [sortCol, setSortCol] = useState<SortCol>('time')
+  const [sortDir, setSortDir] = useState<SortDir>('asc')
+
+  function handleSort(col: SortCol) {
+    if (sortCol === col) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortCol(col)
+      setSortDir('asc')
+    }
+  }
+
+  // Build indexed items so translations stay aligned
+  const indexed = useMemo(
+    () => items.map((item, i) => ({ item, i })),
+    [items]
+  )
+
+  const sorted = useMemo(() => {
+    const arr = [...indexed]
+    arr.sort((a, b) => {
+      let cmp = 0
+      switch (sortCol) {
+        case 'signal':
+          cmp = SIGNAL_ORDER[a.item.signal] - SIGNAL_ORDER[b.item.signal]
+          break
+        case 'title': {
+          const ta = (translations[a.i] ?? a.item.title).toLowerCase()
+          const tb = (translations[b.i] ?? b.item.title).toLowerCase()
+          cmp = ta.localeCompare(tb, 'zh-TW')
+          break
+        }
+        case 'category':
+          cmp = a.item.category.localeCompare(b.item.category)
+          break
+        case 'source':
+          cmp = (a.item.source ?? '').localeCompare(b.item.source ?? '')
+          break
+        case 'time': {
+          const da = a.item.pubDate ? new Date(a.item.pubDate).getTime() : 0
+          const db = b.item.pubDate ? new Date(b.item.pubDate).getTime() : 0
+          cmp = da - db
+          break
+        }
+      }
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+    return arr
+  }, [indexed, sortCol, sortDir, translations])
+
+  function arrow(col: SortCol) {
+    if (sortCol !== col) return <span className="sort-arrow inactive">⇅</span>
+    return <span className="sort-arrow active">{sortDir === 'asc' ? '↑' : '↓'}</span>
+  }
+
   if (items.length === 0) {
-    return (
-      <div className="empty">No headlines found. Check your network connection.</div>
-    )
+    return <div className="empty">暫無標題。請確認網路連線。</div>
   }
 
   return (
     <>
       <div className="hl-table">
         <div className="hl-head">
-          <span>Signal</span>
-          <span>Headline</span>
-          <span className="hide-sm">Category</span>
-          <span className="hide-sm">Source</span>
-          <span className="hide-xs">Time</span>
+          <span className="hcol sortable" onClick={() => handleSort('signal')}>
+            信號{arrow('signal')}
+          </span>
+          <span className="hcol sortable" onClick={() => handleSort('title')}>
+            標題{arrow('title')}
+          </span>
+          <span className="hcol sortable hide-sm" onClick={() => handleSort('category')}>
+            類別{arrow('category')}
+          </span>
+          <span className="hcol sortable hide-sm" onClick={() => handleSort('source')}>
+            來源{arrow('source')}
+          </span>
+          <span className="hcol sortable hide-xs" onClick={() => handleSort('time')}>
+            時間{arrow('time')}
+          </span>
         </div>
-        {items.map((item, i) => (
-          <div key={i} className="hl-row">
-            <span><SignalBadge signal={item.signal} /></span>
-            <span className="hl-title">
-              {item.link
-                ? <a href={item.link} target="_blank" rel="noopener noreferrer">{item.title}</a>
-                : item.title
-              }
-              {(item.matchedBull.length > 0 || item.matchedBear.length > 0) && (
-                <span className="kw-hints">
-                  {item.matchedBull.map(k => (
-                    <span key={k} className="kw bull">{k}</span>
-                  ))}
-                  {item.matchedBear.map(k => (
-                    <span key={k} className="kw bear">{k}</span>
-                  ))}
-                </span>
-              )}
-            </span>
-            <span className="hide-sm cat-tag">{CATEGORY_LABELS[item.category]}</span>
-            <span className="hide-sm src-tag">{item.source}</span>
-            <span className="hide-xs time-tag">{timeAgo(item.pubDate)}</span>
-          </div>
-        ))}
+
+        {sorted.map(({ item, i }) => {
+          const title = translations[i] ?? item.title
+          return (
+            <div key={i} className="hl-row">
+              <span><SignalBadge signal={item.signal} /></span>
+              <span className="hl-title">
+                {item.link
+                  ? <a href={item.link} target="_blank" rel="noopener noreferrer">{title}</a>
+                  : title
+                }
+                {(item.matchedBull.length > 0 || item.matchedBear.length > 0) && (
+                  <span className="kw-hints">
+                    {item.matchedBull.map(k => <span key={k} className="kw bull">{k}</span>)}
+                    {item.matchedBear.map(k => <span key={k} className="kw bear">{k}</span>)}
+                  </span>
+                )}
+              </span>
+              <span className="hide-sm cat-tag">{CATEGORY_LABELS[item.category]}</span>
+              <span className="hide-sm src-tag">{item.source}</span>
+              <span className="hide-xs time-tag">{timeAgo(item.pubDate)}</span>
+            </div>
+          )
+        })}
       </div>
 
       <style>{`
         .empty {
           padding: 2rem; text-align: center;
-          font-size: 13px; color: #888;
-          font-family: var(--font-mono, monospace);
+          font-size: 13px; color: var(--muted);
+          font-family: var(--serif); letter-spacing: 0.1em;
         }
         .hl-table {
-          border: 0.5px solid rgba(0,0,0,0.12);
-          border-radius: 12px; overflow: hidden;
+          border: 0.5px solid var(--line);
+          border-radius: 2px; overflow: hidden;
           margin-bottom: 1.5rem;
-        }
-        @media (prefers-color-scheme: dark) {
-          .hl-table { border-color: rgba(255,255,255,0.1); }
         }
         .hl-head {
           display: grid;
-          grid-template-columns: 56px 1fr 56px 100px 64px;
+          grid-template-columns: 52px 1fr 52px 110px 62px;
           gap: 8px; padding: 8px 14px;
-          background: #f7f6f2;
-          border-bottom: 0.5px solid rgba(0,0,0,0.08);
-          font-size: 11px; font-family: var(--font-mono, monospace);
-          letter-spacing: 0.07em; text-transform: uppercase; color: #888;
+          background: var(--card);
+          border-bottom: 0.5px solid var(--line);
+          font-size: 11px;
+          font-family: var(--serif);
+          letter-spacing: 0.12em;
+          color: var(--muted);
         }
-        @media (prefers-color-scheme: dark) {
-          .hl-head { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.07); }
+        .hcol { display: flex; align-items: center; gap: 3px; }
+        .sortable {
+          cursor: pointer;
+          user-select: none;
+          white-space: nowrap;
+          transition: color 0.15s;
         }
+        .sortable:hover { color: var(--accent); }
+        .sort-arrow { font-size: 10px; }
+        .sort-arrow.inactive { opacity: 0.3; }
+        .sort-arrow.active { color: var(--accent); }
+
         .hl-row {
           display: grid;
-          grid-template-columns: 56px 1fr 56px 100px 64px;
+          grid-template-columns: 52px 1fr 52px 110px 62px;
           gap: 8px; padding: 10px 14px;
-          border-bottom: 0.5px solid rgba(0,0,0,0.06);
+          border-bottom: 0.5px solid var(--line);
           align-items: start;
-        }
-        @media (prefers-color-scheme: dark) {
-          .hl-row { border-color: rgba(255,255,255,0.05); }
+          transition: background 0.1s;
         }
         .hl-row:last-child { border-bottom: none; }
-        .hl-row:hover { background: rgba(0,0,0,0.015); }
-        @media (prefers-color-scheme: dark) {
-          .hl-row:hover { background: rgba(255,255,255,0.03); }
+        .hl-row:hover { background: rgba(155,50,38,0.03); }
+
+        .hl-title { font-size: 13px; line-height: 1.6; font-family: var(--serif); }
+        .hl-title a { color: var(--ink); text-decoration: none; }
+        .hl-title a:hover {
+          color: var(--accent);
+          text-decoration: underline;
+          text-underline-offset: 3px;
         }
-        .hl-title { font-size: 13px; line-height: 1.5; }
-        .hl-title a {
-          color: inherit; text-decoration: none;
-        }
-        .hl-title a:hover { text-decoration: underline; }
-        .kw-hints { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-        .kw {
-          font-size: 10px; padding: 1px 6px;
-          border-radius: 3px; font-family: var(--font-mono, monospace);
-        }
-        .kw.bull { background: #eaf3de; color: #3b6d11; }
-        .kw.bear { background: #fcebeb; color: #a32d2d; }
-        .cat-tag { font-size: 11px; color: #888; font-family: var(--font-mono, monospace); }
-        .src-tag  { font-size: 11px; color: #888; font-family: var(--font-mono, monospace); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .time-tag { font-size: 11px; color: #aaa; font-family: var(--font-mono, monospace); white-space: nowrap; }
+        .kw-hints { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+        .kw { font-size: 10px; padding: 1px 6px; border-radius: 2px; font-family: var(--mono); }
+        .kw.bull { background: var(--bull-bg); color: var(--bull); }
+        .kw.bear { background: var(--bear-bg); color: var(--bear); }
+
+        .cat-tag  { font-size: 11px; color: var(--muted); font-family: var(--serif); letter-spacing: 0.06em; }
+        .src-tag  { font-size: 11px; color: var(--muted); font-family: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .time-tag { font-size: 11px; color: var(--muted); font-family: var(--serif); letter-spacing: 0.04em; white-space: nowrap; }
+
         @media (max-width: 640px) {
           .hide-sm { display: none !important; }
-          .hl-head, .hl-row { grid-template-columns: 56px 1fr 64px; }
+          .hl-head, .hl-row { grid-template-columns: 52px 1fr 62px; }
         }
         @media (max-width: 400px) {
           .hide-xs { display: none !important; }
-          .hl-head, .hl-row { grid-template-columns: 56px 1fr; }
+          .hl-head, .hl-row { grid-template-columns: 52px 1fr; }
         }
       `}</style>
     </>
